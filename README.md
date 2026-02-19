@@ -523,69 +523,6 @@
     color: var(--accent);
   }
 
-  .region-source-toggle {
-    margin-top: 0.5rem;
-    display: flex;
-    gap: 1.25rem;
-    flex-wrap: wrap;
-    font-size: 0.75rem;
-    color: var(--muted);
-  }
-
-  .region-source-toggle label {
-    cursor: pointer;
-  }
-
-  .region-video-wrapper {
-    max-width: 900px;
-    margin: 0 auto;
-  }
-
-  .region-video-frame {
-    position: relative;
-    width: 100%;
-    padding-bottom: 56.25%;
-    background: #000;
-    border-radius: 4px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-  }
-
-  .region-video-frame video {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-    background: #000;
-  }
-
-  .region-placeholder,
-  .region-error {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.6rem;
-    padding: 1.5rem;
-    text-align: center;
-    font-size: 0.8rem;
-  }
-
-  .region-placeholder {
-    color: var(--muted);
-  }
-
-  .region-error {
-    color: var(--danger);
-  }
-
-  .region-hidden {
-    display: none;
-  }
-
   .region-note {
     max-width: 900px;
     margin: 0.9rem auto 0;
@@ -602,51 +539,6 @@
   <h1>幻の<span>動画</span></h1>
   <div class="subtitle">再生数 <strong style="color:var(--accent)">≤ 10</strong> の動画を探索する</div>
 </header>
-
-<!-- 国選択 + 埋め込み動画 -->
-<section class="region-card">
-  <span class="region-label">// REGION & SOURCE</span>
-  <div class="region-row">
-    <select id="regionSelect" class="region-select" aria-label="国・リージョンを選択">
-      <option value="JP" selected>日本</option>
-      <option value="US">アメリカ</option>
-      <option value="GB">イギリス</option>
-      <option value="DE">ドイツ</option>
-      <option value="FR">フランス</option>
-      <option value="KR">韓国</option>
-    </select>
-    <div class="region-current">
-      現在: <strong id="regionCurrentLabel">日本</strong> に設定された動画を再生
-    </div>
-  </div>
-  <div class="region-source-toggle">
-    <label>
-      <input type="radio" name="regionSource" id="regionSourceInternal" value="internal" checked>
-      サイト内の動画（例: <code>videos/jp.mp4</code>）
-    </label>
-    <label>
-      <input type="radio" name="regionSource" id="regionSourceExternal" value="external">
-      外部のサンプル動画URL（テスト用）
-    </label>
-  </div>
-</section>
-
-<section class="region-video-wrapper">
-  <div class="region-video-frame">
-    <video id="regionVideo" controls playsinline class="region-hidden">
-      <source id="regionVideoSource" src="" type="video/mp4">
-      お使いのブラウザは動画の再生に対応していません。
-    </video>
-    <div id="regionPlaceholder" class="region-placeholder">
-      国とソースを選ぶと、ここに動画が埋め込まれて再生されます。
-    </div>
-    <div id="regionError" class="region-error region-hidden"></div>
-  </div>
-  <div class="region-note">
-    内部動画モードでは <code>videos/jp.mp4</code>, <code>videos/us.mp4</code> ... のように
-    このHTMLと同じ階層に <code>videos</code> フォルダを作り、その中にファイルを置いてください。
-  </div>
-</section>
 
 <!-- API Key Setup -->
 <div id="setupPanel" class="setup-panel">
@@ -666,13 +558,27 @@
 <!-- Main App -->
 <div id="mainApp" class="main">
 
+  <div class="region-card" style="margin-bottom:1.5rem;">
+    <span class="region-label">表示する動画のタイトル言語</span>
+    <div class="region-row">
+      <select id="regionSelect" class="region-select" aria-label="タイトル言語を選択">
+        <option value="JP" selected>日本</option>
+        <option value="US">United States</option>
+        <option value="GB">United Kingdom</option>
+        <option value="DE">Deutschland</option>
+        <option value="FR">France</option>
+        <option value="KR">한국</option>
+      </select>
+    </div>
+  </div>
+
   <div class="controls">
     <button class="search-btn" id="searchBtn" onclick="findVideo()">
       ランダム探索
     </button>
     <div class="status" id="statusText"></div>
   </div>
-  <p class="region-note" style="margin-top:0.25rem; margin-bottom:1.5rem;">※「国・リージョン」で選んだ地域で視聴可能な動画だけを検索します（日本＝日本で見れる動画）</p>
+  <p class="region-note" style="margin-top:0.25rem; margin-bottom:1.5rem;">※選択した言語のタイトルの動画だけを検索します</p>
 
   <div class="scan-indicator" id="scanIndicator">
     <div class="scan-bar"></div>
@@ -718,35 +624,39 @@
 let apiKey = '';
 const foundHistory = [];
 
-// 国コード → 表示名
+// 国コード → 表示名（検索表示用）
 const REGION_NAMES = {
   JP: '日本',
-  US: 'アメリカ',
-  GB: 'イギリス',
-  DE: 'ドイツ',
-  FR: 'フランス',
-  KR: '韓国',
+  US: 'United States',
+  GB: 'United Kingdom',
+  DE: 'Deutschland',
+  FR: 'France',
+  KR: '한국',
 };
 
-// サイト内（相対パス）の動画
-const REGION_INTERNAL = {
-  JP: 'videos/jp.mp4',
-  US: 'videos/us.mp4',
-  GB: 'videos/gb.mp4',
-  DE: 'videos/de.mp4',
-  FR: 'videos/fr.mp4',
-  KR: 'videos/kr.mp4',
-};
+// タイトルが指定言語かどうか（文字で判定）
+function isTitleInLanguage(title, regionCode) {
+  if (!title || !title.trim()) return false;
+  const t = title.trim();
+  // 日本語: ひらがな・カタカナ・漢字のいずれかを含む
+  const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(t);
+  // 韓国語: ハングルを含む
+  const hasKorean = /[\uAC00-\uD7AF]/.test(t);
+  // ラテン系（英・独・仏など）: ラテン文字が一定以上
+  const latinCount = (t.match(/[a-zA-Z\u00C0-\u024F]/g) || []).length;
+  const otherCount = t.replace(/\s/g, '').length;
+  const mostlyLatin = otherCount > 0 && latinCount / otherCount >= 0.3;
 
-// 外部サンプル動画URL
-const REGION_EXTERNAL = {
-  JP: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  US: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-  GB: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  DE: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-  FR: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-  KR: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-};
+  switch (regionCode) {
+    case 'JP': return hasJapanese;
+    case 'KR': return hasKorean;
+    case 'US':
+    case 'GB':
+    case 'DE':
+    case 'FR':
+    default: return mostlyLatin && !hasJapanese && !hasKorean;
+  }
+}
 
 // Random query generators
 const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -799,7 +709,6 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('setupPanel').style.display = 'none';
   document.getElementById('mainApp').style.display = 'block';
 
-  initRegionVideo();
 });
 
 // ============================
@@ -870,10 +779,12 @@ async function searchUntilFound(maxAttempts = 15) {
     if (!statsRes.items) continue;
 
     // Filter by view count ≤ 10
-    const lowViews = statsRes.items.filter(v => {
+    let lowViews = statsRes.items.filter(v => {
       const views = parseInt(v.statistics?.viewCount || '999', 10);
       return views <= 10;
     });
+    // 選択した言語のタイトルだけに絞る
+    lowViews = lowViews.filter(v => isTitleInLanguage(v.snippet?.title || '', regionCode));
 
     if (lowViews.length > 0) {
       const pick = lowViews[Math.floor(Math.random() * lowViews.length)];
@@ -999,95 +910,7 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ============================
-// Region video (埋め込み動画)
-// ============================
-function getRegionElements() {
-  return {
-    select: document.getElementById('regionSelect'),
-    currentLabel: document.getElementById('regionCurrentLabel'),
-    video: document.getElementById('regionVideo'),
-    source: document.getElementById('regionVideoSource'),
-    placeholder: document.getElementById('regionPlaceholder'),
-    error: document.getElementById('regionError'),
-    sourceInternal: document.getElementById('regionSourceInternal'),
-    sourceExternal: document.getElementById('regionSourceExternal'),
-  };
-}
-
-function getRegionVideoUrl(code) {
-  const els = getRegionElements();
-  const useInternal = els.sourceInternal && els.sourceInternal.checked;
-  if (useInternal) {
-    return REGION_INTERNAL[code] || REGION_INTERNAL.JP;
-  }
-  return REGION_EXTERNAL[code] || REGION_EXTERNAL.JP;
-}
-
-function updateRegionLabel() {
-  const els = getRegionElements();
-  if (!els.select || !els.currentLabel) return;
-  const code = els.select.value || 'JP';
-  els.currentLabel.textContent = REGION_NAMES[code] || code;
-}
-
-function hideRegionError() {
-  const els = getRegionElements();
-  if (!els.error) return;
-  els.error.classList.add('region-hidden');
-  els.error.textContent = '';
-}
-
-function showRegionError(msg) {
-  const els = getRegionElements();
-  if (!els.error || !els.placeholder) return;
-  els.error.textContent = msg;
-  els.error.classList.remove('region-hidden');
-  els.placeholder.classList.add('region-hidden');
-}
-
-function updateRegionVideo() {
-  const els = getRegionElements();
-  if (!els.select || !els.video || !els.source || !els.placeholder) return;
-
-  const code = els.select.value || 'JP';
-  updateRegionLabel();
-  hideRegionError();
-
-  const url = getRegionVideoUrl(code);
-  if (!url) {
-    els.video.classList.add('region-hidden');
-    els.placeholder.classList.remove('region-hidden');
-    return;
-  }
-
-  els.source.src = url;
-  els.video.classList.remove('region-hidden');
-  els.placeholder.classList.add('region-hidden');
-  els.video.load();
-}
-
-function initRegionVideo() {
-  const els = getRegionElements();
-  if (!els.select) return; // セクションがない場合は何もしない
-
-  els.select.addEventListener('change', updateRegionVideo);
-  if (els.sourceInternal) els.sourceInternal.addEventListener('change', updateRegionVideo);
-  if (els.sourceExternal) els.sourceExternal.addEventListener('change', updateRegionVideo);
-
-  if (els.video) {
-    els.video.addEventListener('error', () => {
-      const code = els.select ? els.select.value : 'JP';
-      const path = getRegionVideoUrl(code);
-      showRegionError('動画を読み込めません: ' + path + '\\n\\n' +
-        'サイト内動画を使う場合はこのパスにファイルを置くか、「外部のサンプル動画URL」を選択してください。');
-    });
-    els.video.addEventListener('loadeddata', hideRegionError);
-    els.video.addEventListener('canplay', hideRegionError);
-  }
-
-  updateRegionVideo();
-}
 </script>
 </body>
 </html>
+

@@ -634,27 +634,36 @@ const REGION_NAMES = {
   KR: '한국',
 };
 
-// タイトルが指定言語かどうか（文字で判定）
-function isTitleInLanguage(title, regionCode) {
-  if (!title || !title.trim()) return false;
-  const t = title.trim();
-  // 日本語: ひらがな・カタカナ・漢字のいずれかを含む
-  const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(t);
-  // 韓国語: ハングルを含む
-  const hasKorean = /[\uAC00-\uD7AF]/.test(t);
-  // ラテン系（英・独・仏など）: ラテン文字が一定以上
-  const latinCount = (t.match(/[a-zA-Z\u00C0-\u024F]/g) || []).length;
-  const otherCount = t.replace(/\s/g, '').length;
-  const mostlyLatin = otherCount > 0 && latinCount / otherCount >= 0.3;
+// タイトル・概要が指定言語かどうか（文字で判定）
+// description は省略可（日本選択時はひらがなの有無で中国語を除外するため使用）
+function isTitleInLanguage(title, regionCode, description) {
+  const desc = (description && typeof description === 'string') ? description : '';
+  const combined = ((title || '') + ' ' + desc).trim();
+  if (!combined) return false;
+  const t = (title || '').trim();
 
   switch (regionCode) {
-    case 'JP': return hasJapanese;
-    case 'KR': return hasKorean;
+    case 'JP': {
+      // 日本: タイトルまたは概要にひらがながあること（中国語はひらがなを使わないため除外）
+      const hasHiragana = /[\u3040-\u309F]/.test(combined);
+      return hasHiragana;
+    }
+    case 'KR': {
+      const hasKorean = /[\uAC00-\uD7AF]/.test(t);
+      return hasKorean;
+    }
     case 'US':
     case 'GB':
     case 'DE':
     case 'FR':
-    default: return mostlyLatin && !hasJapanese && !hasKorean;
+    default: {
+      const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(t);
+      const hasKorean = /[\uAC00-\uD7AF]/.test(t);
+      const latinCount = (t.match(/[a-zA-Z\u00C0-\u024F]/g) || []).length;
+      const otherCount = t.replace(/\s/g, '').length;
+      const mostlyLatin = otherCount > 0 && latinCount / otherCount >= 0.3;
+      return mostlyLatin && !hasJapanese && !hasKorean;
+    }
   }
 }
 
@@ -783,8 +792,12 @@ async function searchUntilFound(maxAttempts = 15) {
       const views = parseInt(v.statistics?.viewCount || '999', 10);
       return views <= 10;
     });
-    // 選択した言語のタイトルだけに絞る
-    lowViews = lowViews.filter(v => isTitleInLanguage(v.snippet?.title || '', regionCode));
+    // 選択した言語のタイトル・概要だけに絞る（日本はひらがなありで中国語を除外）
+    lowViews = lowViews.filter(v => isTitleInLanguage(
+      v.snippet?.title || '',
+      regionCode,
+      v.snippet?.description || ''
+    ));
 
     if (lowViews.length > 0) {
       const pick = lowViews[Math.floor(Math.random() * lowViews.length)];
@@ -913,4 +926,3 @@ function escapeHtml(s) {
 </script>
 </body>
 </html>
-

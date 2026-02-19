@@ -667,27 +667,31 @@ function isTitleInLanguage(title, regionCode, description) {
   }
 }
 
-// Random query generators
+// Random query generators（検索のばらつきを大きくする）
 const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-const words = ['cat','dog','rain','coffee','morning','random','hello','test','video','my','vlog','day','life','first','new','home','travel','food','music','funny','cute','game','walk','sky','tree','bird','sea','snow','flower','car'];
-const jpWords = ['散歩','料理','猫','犬','日常','朝','夜','空','海','山','旅','家','友達','思い出','テスト','練習','動画','はじめて','記録'];
+const words = ['cat','dog','rain','coffee','morning','random','hello','test','video','my','vlog','day','life','first','new','home','travel','food','music','funny','cute','game','walk','sky','tree','bird','sea','snow','flower','car','song','live','cover','asmr','unbox','vlog','daily','night','city','nature','art','draw','cook','recipe'];
+const jpWords = ['散歩','料理','猫','犬','日常','朝','夜','空','海','山','旅','家','友達','思い出','テスト','練習','動画','はじめて','記録','歌','演奏','カバー','開封','暮らし','街','自然','絵','料理','レシピ','寝落ち','作業','勉強'];
 
 function randomQuery() {
   const type = Math.random();
-  if (type < 0.25) {
-    // Random 2-char string
-    return chars[Math.floor(Math.random()*chars.length)] + chars[Math.floor(Math.random()*chars.length)];
-  } else if (type < 0.5) {
-    // English word
+  if (type < 0.2) {
+    // ランダム3文字
+    let s = '';
+    for (let i = 0; i < 3; i++) s += chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  } else if (type < 0.4) {
     return words[Math.floor(Math.random()*words.length)];
-  } else if (type < 0.75) {
-    // Japanese word
+  } else if (type < 0.6) {
     return jpWords[Math.floor(Math.random()*jpWords.length)];
-  } else {
-    // Random date pattern
-    const y = 2015 + Math.floor(Math.random()*9);
+  } else if (type < 0.8) {
+    const y = 2010 + Math.floor(Math.random()*15);
     const m = String(Math.floor(Math.random()*12)+1).padStart(2,'0');
-    return `${y}/${m}`;
+    return `${y} ${m}`;
+  } else {
+    // 2語組み合わせでさらにばらつき
+    const w1 = words[Math.floor(Math.random()*words.length)];
+    const w2 = words[Math.floor(Math.random()*words.length)];
+    return w1 + ' ' + w2;
   }
 }
 
@@ -761,12 +765,15 @@ async function searchUntilFound(maxAttempts = 15) {
     const q = randomQuery();
     updateScanText(`"${q}" を検索中... (${REGION_NAMES[regionCode] || regionCode}, 試行 ${attempts})`);
 
-    // Search for videos（regionCode でその国で視聴可能な動画に絞る）
+    // 検索の並び順もランダムにして毎回違う結果が出やすくする
+    const orderOptions = ['date', 'viewCount', 'relevance'];
+    const order = orderOptions[Math.floor(Math.random() * orderOptions.length)];
+
     const searchRes = await ytFetch('search', {
       part: 'id',
       q: q,
       type: 'video',
-      order: 'date',
+      order: order,
       maxResults: 50,
       regionCode: regionCode,
       relevanceLanguage: relevanceLanguage,
@@ -799,8 +806,12 @@ async function searchUntilFound(maxAttempts = 15) {
       v.snippet?.description || ''
     ));
 
-    if (lowViews.length > 0) {
-      const pick = lowViews[Math.floor(Math.random() * lowViews.length)];
+    // すでに表示した動画は除外して完全に別の動画を選ぶ
+    const shownIds = new Set(foundHistory.map(h => h.id));
+    const candidates = lowViews.filter(v => !shownIds.has(v.id));
+
+    if (candidates.length > 0) {
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
       return pick;
     }
   }
@@ -926,4 +937,5 @@ function escapeHtml(s) {
 </script>
 </body>
 </html>
+
 
